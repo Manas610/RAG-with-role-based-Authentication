@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from langchain_chroma import Chroma
@@ -5,17 +6,31 @@ from langchain_openai import OpenAIEmbeddings
 from openai import OpenAI
 
 from app.Prompt import SYSTEM_PROMPT
+from app.Auth import ROLE_PERMISSIONS
+
+from dotenv import load_dotenv
+
+load_dotenv()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY not found in .env")
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 CHROMA_DIR = BASE_DIR / "data" / "chroma_db"
 
-DISTANCE_THRESHOLD = 0.4
+DISTANCE_THRESHOLD = 1.5
 
-client = OpenAI()
+client = OpenAI(
+    api_key=OPENAI_API_KEY
+)
 
-embeddings = OpenAIEmbeddings()
+embeddings = OpenAIEmbeddings(
+    model="text-embedding-3-small",
+    api_key=OPENAI_API_KEY
+)
 
 def get_vectorstore():
     return Chroma(
@@ -24,7 +39,7 @@ def get_vectorstore():
     )
 
 
-def retrieve_answer(query: str):
+def retrieve_answer(query: str, role: str):
 
     vectorstore = get_vectorstore()
 
@@ -70,6 +85,15 @@ def retrieve_answer(query: str):
         )
 
     context = "\n\n".join(context_parts)
+
+    allowed_docs = ROLE_PERMISSIONS[role]
+
+    for file in source_files:
+        if file not in allowed_docs:
+            return {
+                "answer": "Not Authorized",
+                "sources": []
+            }
 
     response = client.chat.completions.create(
         model="gpt-4.1-mini",

@@ -11,6 +11,15 @@ from langchain_community.document_loaders import (
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
+from collections import Counter
+
+from dotenv import load_dotenv
+
+load_dotenv()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY not found in .env")
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -67,7 +76,10 @@ def chunk_documents(documents):
 
 def create_vector_store(chunks):
 
-    embeddings = OpenAIEmbeddings()
+    embeddings = OpenAIEmbeddings(
+        model="text-embedding-3-small",
+        api_key=OPENAI_API_KEY
+    )
 
     vectorstore = Chroma.from_documents(
         documents=chunks,
