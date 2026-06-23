@@ -1,12 +1,10 @@
 from datetime import datetime, timedelta
 
-from jose import jwt, JWTError
-
+from jose import jwt
 from passlib.context import CryptContext
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer
-from fastapi import Depends
 
 from app.Database import get_connection
 
@@ -23,7 +21,9 @@ pwd_context = CryptContext(
     deprecated="auto"
 )
 
-security = HTTPBearer()
+security = HTTPBearer(
+    auto_error=False
+)
 
 
 ROLE_PERMISSIONS = {
@@ -67,7 +67,9 @@ def authenticate_user(
 
     user = conn.execute(
         """
-        SELECT * FROM users WHERE username = ?
+        SELECT *
+        FROM users
+        WHERE username = ?
         """,
         (username,)
     ).fetchone()
@@ -89,6 +91,7 @@ def authenticate_user(
 def create_access_token(data):
 
     payload = data.copy()
+
     expire = (
         datetime.utcnow()
         + timedelta(hours=1)
@@ -96,24 +99,48 @@ def create_access_token(data):
 
     payload["exp"] = expire
 
-    return jwt.encode(
+    token = jwt.encode(
         payload,
         SECRET_KEY,
         algorithm=ALGORITHM
     )
 
+    print("\n========== TOKEN CREATED ==========")
+    print(token)
+
+    return token
+
 
 def verify_token(token):
+
     try:
+
+        print("\n========== JWT DECODE ==========")
+
+        print("TOKEN RECEIVED:")
+        print(token)
+
         payload = jwt.decode(
             token,
             SECRET_KEY,
             algorithms=[ALGORITHM]
         )
 
+        print("\nJWT PAYLOAD:")
+        print(payload)
+
         return payload
-    
-    except JWTError:
+
+    except Exception as e:
+
+        print("\n========== JWT ERROR ==========")
+
+        print("ERROR TYPE:")
+        print(type(e))
+
+        print("\nERROR MESSAGE:")
+        print(str(e))
+
         return None
 
 
@@ -121,19 +148,48 @@ def get_current_user(
     credentials=Depends(security)
 ):
 
+    print("\n========== AUTH DEBUG ==========")
+
+    print("\nRAW CREDENTIALS:")
+    print(credentials)
+
+    if credentials is None:
+
+        print("\nNO AUTHORIZATION HEADER FOUND")
+
+        raise HTTPException(
+            status_code=401,
+            detail="No Authorization Header"
+        )
+
+    print("\nSCHEME:")
+    print(credentials.scheme)
+
+    print("\nCREDENTIALS:")
+    print(credentials.credentials)
+
     token = credentials.credentials
 
     if token.startswith("Bearer "):
-        token = token.replace(
-            "Bearer ",
-            "",
-            1
-        )
+
+        print("\nDOUBLE BEARER DETECTED")
+
+        token = token[7:]
+
+    print("\nFINAL TOKEN USED:")
+    print(token)
+
     payload = verify_token(token)
+
     if payload is None:
+
         raise HTTPException(
             status_code=401,
             detail="Invalid Token"
         )
+
+    print("\nAUTH SUCCESS")
+
+    print(payload)
 
     return payload

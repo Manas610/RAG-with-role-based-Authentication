@@ -12,6 +12,10 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from collections import Counter
+from app.Config import (
+    CHUNK_SIZE,
+    CHUNK_OVERLAP
+)
 
 from dotenv import load_dotenv
 
@@ -62,8 +66,8 @@ def load_documents():
 def chunk_documents(documents):
 
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200
+        chunk_size=CHUNK_SIZE,
+        chunk_overlap=CHUNK_OVERLAP
     )
 
     chunks = splitter.split_documents(documents)

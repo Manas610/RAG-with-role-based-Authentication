@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from app.Ingest import run_ingestion
 from app.Retrieval import retrieve_answer
+import app.Config as Config
 
 from app.Auth import (
     authenticate_user,
@@ -20,6 +21,12 @@ app = FastAPI(
 
 class QueryRequest(BaseModel):
     query: str
+
+class ConfigRequest(BaseModel):
+    chunk_size: int | None = None
+    chunk_overlap: int | None = None
+    top_k: int | None = None
+    temperature: float | None = None
 
 
 @app.get("/")
@@ -54,7 +61,8 @@ def retrieve(request: QueryRequest,current_user=Depends(
     try:
         answer = retrieve_answer(
             request.query,
-            current_user["role"]
+            current_user["role"],
+            current_user["sub"]
         )
 
         return {
@@ -99,4 +107,38 @@ def login(
     return {
         "access_token": token,
         "token_type": "bearer"
+    }
+
+@app.post("/config")
+def update_config(
+    request: ConfigRequest
+):
+
+    if request.chunk_size is not None:
+        Config.CHUNK_SIZE = request.chunk_size
+
+    if request.chunk_overlap is not None:
+        Config.CHUNK_OVERLAP = request.chunk_overlap
+
+    if request.top_k is not None:
+        Config.TOP_K = request.top_k
+
+    if request.temperature is not None:
+        Config.TEMPERATURE = request.temperature
+
+    return {
+        "chunk_size": Config.CHUNK_SIZE,
+        "chunk_overlap": Config.CHUNK_OVERLAP,
+        "top_k": Config.TOP_K,
+        "temperature": Config.TEMPERATURE
+    }
+
+@app.get("/config")
+def get_config():
+
+    return {
+        "chunk_size": Config.CHUNK_SIZE,
+        "chunk_overlap": Config.CHUNK_OVERLAP,
+        "top_k": Config.TOP_K,
+        "temperature": Config.TEMPERATURE
     }

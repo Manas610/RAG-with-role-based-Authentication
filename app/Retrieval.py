@@ -7,6 +7,8 @@ from openai import OpenAI
 
 from app.Prompt import SYSTEM_PROMPT
 from app.Auth import ROLE_PERMISSIONS
+from app.MessageStore import save_message
+from app.Config import TOP_K , TEMPERATURE
 
 from dotenv import load_dotenv
 
@@ -39,16 +41,19 @@ def get_vectorstore():
     )
 
 
-def retrieve_answer(query: str, role: str):
+def retrieve_answer(query: str, role: str, username: str):
 
     vectorstore = get_vectorstore()
 
     results = vectorstore.similarity_search_with_score(
         query=query,
-        k=3
+        k=TOP_K
     )
 
     if len(results) == 0:
+
+        save_message(username=username, query=query, response="No information found")
+
         return {
             "answer": "No information found in documents.",
             "sources": []
@@ -57,6 +62,9 @@ def retrieve_answer(query: str, role: str):
     best_distance = results[0][1]
 
     if best_distance > DISTANCE_THRESHOLD:
+
+        save_message(username=username, query=query, response="No information found")
+
         return {
             "answer": "No similar information found in documents.",
             "sources": []
@@ -97,6 +105,7 @@ def retrieve_answer(query: str, role: str):
 
     response = client.chat.completions.create(
         model="gpt-4.1-mini",
+        temperature=TEMPERATURE,
         messages=[
             {
                 "role": "system",
@@ -116,6 +125,8 @@ def retrieve_answer(query: str, role: str):
     )
 
     answer = response.choices[0].message.content
+
+    save_message(username=username, query=query, response=answer)
 
     return {
         "answer": answer,
